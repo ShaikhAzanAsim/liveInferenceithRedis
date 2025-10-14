@@ -1,0 +1,4 @@
+KEYS *
+TYPE job:100498d3f676468d8d39f357c2ee203f:meta # to get type of job
+LRANGE job:100498d3f676468d8d39f357c2ee203f:frames 0 0 #for lists
+HGETALL job:100498d3f676468d8d39f357c2ee203f:meta # for hash type

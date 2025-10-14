@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Video Inference</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Video Inference (YOLO)</h1>
+
+    <form id="upload-form">
+      <label>Choose model:</label>
+      <select id="model-select">
+        <option value="yolov8n">yolov8n</option>
+        <option value="yolo11n">yolo11n</option>
+      </select>
+
+      <label for="file">Upload video</label>
+      <input type="file" id="file" accept="video/*" required />
+
+      <button type="submit">Start Inference</button>
+    </form>
+
+    <div id="status" class="hidden">
+      <div id="progress-container">
+        <div id="progress-bar"></div>
+      </div>
+      <div id="progress-info">0 / 0</div>
+      <div id="frame-container">
+        <img id="live-frame" src="" alt="live frame" />
+      </div>
+      <div id="controls">
+        <button id="download-btn" disabled>Download Video</button>
+      </div>
+      <pre id="metrics" class="metrics"></pre>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
