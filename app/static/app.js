@@ -21,26 +21,40 @@ function log(msg) {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const file = fileInput.files[0];
-  if (!file) { alert("Select a video file."); return; }
-  const model = modelSelect.value;
+  if (!file) {
+    alert("Please select a video file first.");
+    return;
+  }
 
-  // Upload via fetch
+  const model = modelSelect.value;
+  const customFileInput = document.getElementById("modelFile");
+  const customModelFile = model === "custom" ? customFileInput.files[0] : null;
+
+  if (model === "custom" && !customModelFile) {
+    alert("Please upload your custom YOLO .pt model file.");
+    return;
+  }
+
   const fd = new FormData();
   fd.append("file", file);
   fd.append("model", model);
+  if (customModelFile) fd.append("custom_model", customModelFile);
 
+  log("Uploading files...");
   const resp = await fetch("/upload", { method: "POST", body: fd });
+
   if (!resp.ok) {
-    const err = await resp.json();
+    const err = await resp.json().catch(() => ({}));
     alert("Upload failed: " + (err.detail || resp.statusText));
     return;
   }
+
   const data = await resp.json();
   jobId = data.job_id;
-  const wsPath = "/ws/jobs/" + jobId;
+  const wsPath = data.ws;
 
   statusDiv.classList.remove("hidden");
-  metricsEl.textContent = "Processing started, connecting WS...";
+  metricsEl.textContent = "Processing started. Connecting WebSocket...";
   openWs(wsPath);
 });
 
@@ -49,38 +63,36 @@ function openWs(wsPath) {
   ws = new WebSocket(url);
 
   ws.onopen = () => {
-    log("WS connected");
-    metricsEl.textContent = "Connected. Waiting frames...";
+    log("✅ WebSocket connected");
+    metricsEl.textContent = "Connected. Receiving frames...";
   };
+
   ws.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
       handleMsg(msg);
     } catch (e) {
-      console.warn("Non-JSON message", e);
+      console.warn("Non-JSON message:", e);
     }
   };
-  ws.onclose = () => { log("WS closed"); };
-  ws.onerror = (e) => { console.error(e); };
+
+  ws.onclose = () => log("❌ WebSocket closed");
+  ws.onerror = (e) => console.error("WebSocket error:", e);
 }
 
 function handleMsg(msg) {
   if (msg.type === "info") {
-    log("INFO: " + msg.message);
+    log("ℹ️ " + msg.message);
   } else if (msg.type === "progress") {
-    const frame = msg.frame || 0;
-    const total = msg.total_frames || 0;
-    const pct = msg.pct || 0;
+    const { frame = 0, total_frames = 0, pct = 0 } = msg;
     progressBar.style.width = pct + "%";
-    progressInfo.textContent = `${frame} / ${total} (${pct}%)`;
+    progressInfo.textContent = `${frame} / ${total_frames} (${pct}%)`;
   } else if (msg.type === "frame") {
-    // contains base64 data
-    const b64 = msg.data;
-    liveFrame.src = "data:image/jpeg;base64," + b64;
+    liveFrame.src = "data:image/jpeg;base64," + msg.data;
   } else if (msg.type === "done") {
     metricsEl.textContent = JSON.stringify(msg.metrics, null, 2);
     downloadBtn.disabled = false;
-    log("Inference done");
+    log("✅ Inference complete");
   } else if (msg.type === "error") {
     alert("Error: " + msg.message);
     metricsEl.textContent = "Error: " + msg.message;
@@ -90,15 +102,17 @@ function handleMsg(msg) {
 downloadBtn.addEventListener("click", async () => {
   if (!jobId) return;
   downloadBtn.disabled = true;
-  downloadBtn.textContent = "Preparing ...";
+  downloadBtn.textContent = "Preparing...";
+
   const resp = await fetch(`/download/${jobId}`);
   if (!resp.ok) {
-    const err = await resp.json();
+    const err = await resp.json().catch(() => ({}));
     alert("Download failed: " + (err.detail || resp.statusText));
     downloadBtn.disabled = false;
     downloadBtn.textContent = "Download Video";
     return;
   }
+
   const blob = await resp.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -108,6 +122,7 @@ downloadBtn.addEventListener("click", async () => {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+
   downloadBtn.textContent = "Downloaded";
-  log("Download finished");
+  log("💾 Download finished");
 });

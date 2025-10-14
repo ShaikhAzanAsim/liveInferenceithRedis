@@ -1,23 +1,35 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Video Inference</title>
+  <title>Video Inference (YOLO)</title>
   <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* Add this in case your styles.css doesn’t have it */
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <h1>Video Inference (YOLO)</h1>
 
-    <form id="upload-form">
-      <label>Choose model:</label>
-      <select id="model-select">
-        <option value="yolov8n">yolov8n</option>
-        <option value="yolo11n">yolo11n</option>
+    <form id="upload-form" enctype="multipart/form-data">
+      <label>Choose YOLO Model:</label>
+      <select id="model-select" name="model">
+        <option value="yolov8n">YOLOv8 Nano (default)</option>
+        <option value="yolo11n">YOLOv11 Nano</option>
+        <option value="custom">Custom (.pt file)</option>
       </select>
 
-      <label for="file">Upload video</label>
-      <input type="file" id="file" accept="video/*" required />
+      <div id="custom-model-container" class="hidden">
+        <label for="modelFile">Upload your custom YOLO model (.pt):</label>
+        <input type="file" id="modelFile" name="custom_model" accept=".pt" />
+      </div>
+
+      <label for="file">Upload Video File:</label>
+      <input type="file" id="file" name="file" accept="video/*" required />
 
       <button type="submit">Start Inference</button>
     </form>
@@ -27,12 +39,15 @@
         <div id="progress-bar"></div>
       </div>
       <div id="progress-info">0 / 0</div>
+
       <div id="frame-container">
-        <img id="live-frame" src="" alt="live frame" />
+        <img id="live-frame" src="" alt="Live frame" />
       </div>
+
       <div id="controls">
         <button id="download-btn" disabled>Download Video</button>
       </div>
+
       <pre id="metrics" class="metrics"></pre>
     </div>
 
@@ -40,5 +55,21 @@
   </div>
 
   <script src="/app.js"></script>
+
+  <!-- ✅ ensure this runs after the page is loaded -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const modelSelect = document.getElementById("model-select");
+      const customModelContainer = document.getElementById("custom-model-container");
+
+      modelSelect.addEventListener("change", () => {
+        if (modelSelect.value === "custom") {
+          customModelContainer.classList.remove("hidden");
+        } else {
+          customModelContainer.classList.add("hidden");
+        }
+      });
+    });
+  </script>
 </body>
 </html>
