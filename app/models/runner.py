@@ -1,6 +1,7 @@
 import os
 import cv2
 import torch
+import numpy as np
 from ultralytics import YOLO
 
 # ✅ Safe-load fix for PyTorch 2.6+
@@ -9,6 +10,7 @@ try:
     torch.serialization.add_safe_globals([DetectionModel])
 except Exception as e:
     print(f"⚠️ Safe global registration failed: {e}")
+
 
 class ModelRunner:
     """
@@ -23,12 +25,10 @@ class ModelRunner:
         if os.path.exists(local_path):
             print(f"🔹 Loading local model: {local_path}")
             try:
-                # Try normal YOLO load
                 self.model = YOLO(local_path)
             except Exception as e:
                 print(f"⚠️ Model load failed with default loader: {e}")
                 print("🔁 Retrying with safe load...")
-                # Fallback manual torch load
                 ckpt = torch.load(local_path, weights_only=False, map_location="cpu")
                 self.model = YOLO(model=ckpt)
         else:
@@ -43,17 +43,42 @@ class ModelRunner:
         if len(preds) > 0:
             res = preds[0]
             boxes = getattr(res, "boxes", None)
+            names = getattr(self.model, "names", {})
+
             if boxes is not None:
                 for b in boxes:
                     try:
                         xyxy = b.xyxy[0].cpu().numpy()
-                        conf = float(b.conf[0].cpu().numpy()) if hasattr(b, "conf") else None
-                        cls = int(b.cls[0].cpu().numpy()) if hasattr(b, "cls") else None
-                        label = f"{cls}:{conf:.2f}" if cls is not None else f"{conf:.2f}"
+                        conf = float(b.conf[0].cpu().numpy()) if hasattr(b, "conf") else 0.0
+                        cls = int(b.cls[0].cpu().numpy()) if hasattr(b, "cls") else -1
+                        label_name = names.get(cls, f"class_{cls}")
+                        label = f"{label_name} {conf:.2f}"
+
                         x1, y1, x2, y2 = map(int, xyxy.tolist())
-                        cv2.rectangle(out, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(out, label, (x1, max(y1 - 6, 0)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+                        # 🎨 Color per class (consistent)
+                        rng = np.random.default_rng(cls)
+                        color = tuple(int(x) for x in rng.integers(60, 255, size=3))
+
+                        # 🟩 Draw thicker bounding box
+                        cv2.rectangle(out, (x1, y1), (x2, y2), color, 3)
+
+                        # 🔠 Larger label font
+                        font_scale = 1.6
+                        font_thickness = 4
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+
+                        (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, font_thickness)
+
+                        # 🧱 Add padding around label background
+                        pad_y = 10
+                        pad_x = 10
+                        top_left = (x1, y1 - text_h - pad_y - baseline)
+                        bottom_right = (x1 + text_w + pad_x, y1)
+
+                        cv2.rectangle(out, top_left, bottom_right, color, -1)
+                        cv2.putText(out, label, (x1 + 3, y1 - 6),
+                                    font, font_scale, (255, 255, 255), font_thickness, cv2.LINE_AA)
                     except Exception:
                         continue
 
