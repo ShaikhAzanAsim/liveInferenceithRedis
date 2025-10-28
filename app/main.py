@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import upload, download, ws
+from app.routes import upload, download, ws, models
 from app.config import STATIC_DIR
 
 app = FastAPI(title="FastAPI Video Inference")
@@ -20,6 +20,6 @@ app.add_middleware(
 app.include_router(upload.router, prefix="")
 app.include_router(download.router, prefix="")
 app.include_router(ws.router, prefix="")
-
+app.include_router(models.router, prefix="")
 # serve static frontend
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

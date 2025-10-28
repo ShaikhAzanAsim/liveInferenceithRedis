@@ -166,3 +166,50 @@ button:disabled {
   text-align: center;
   margin-top: 12px;
 }
+
+/* 🟣 Popup Styles */
+.popup {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 1000;
+}
+
+.popup.hidden { display: none; }
+
+.popup-content {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px 30px;
+  width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+.popup-content h2 { margin-top: 0; }
+
+.class-item {
+  display: flex; justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.popup-buttons {
+  text-align: right;
+  margin-top: 15px;
+}
+
+.popup-buttons button {
+  margin-left: 10px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background-color: #4caf50;
+  color: white;
+  cursor: pointer;
+}
+
+#reset-colors { background-color: #999; }

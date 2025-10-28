@@ -11,6 +11,7 @@ const logDiv = document.getElementById("log");
 
 let jobId = null;
 let ws = null;
+let lastCustomModelName = null; // ✅ store uploaded custom model filename
 
 function log(msg) {
   const p = document.createElement("div");
@@ -57,6 +58,102 @@ form.addEventListener("submit", async (e) => {
   metricsEl.textContent = "Processing started. Connecting WebSocket...";
   openWs(wsPath);
 });
+
+// === Custom Model Analysis Popup ===
+const classPopup = document.getElementById("class-popup");
+const classListDiv = document.getElementById("class-list");
+const resetBtn = document.getElementById("reset-colors");
+const saveBtn = document.getElementById("save-colors");
+
+let classColors = {};
+
+async function analyzeCustomModel(file) {
+  const fd = new FormData();
+  fd.append("model_file", file);
+  lastCustomModelName = file.name; // ✅ remember the uploaded model filename
+
+  const resp = await fetch("/analyze_model", { method: "POST", body: fd });
+  if (!resp.ok) {
+    const err = await resp.json();
+    alert("Failed to analyze model: " + (err.detail || resp.statusText));
+    return;
+  }
+
+  const data = await resp.json();
+  const classNames = data.class_names;
+  showClassPopup(classNames);
+}
+
+function showClassPopup(classNames) {
+  classListDiv.innerHTML = "";
+  classColors = {};
+
+  classNames.forEach(name => {
+    const color = getRandomColor();
+    classColors[name] = color;
+
+    const div = document.createElement("div");
+    div.className = "class-item";
+    div.innerHTML = `
+      <span>${name}</span>
+      <input type="color" value="${color}" data-class="${name}" />
+    `;
+    classListDiv.appendChild(div);
+  });
+
+  classPopup.classList.remove("hidden");
+}
+
+resetBtn.addEventListener("click", () => {
+  document.querySelectorAll('#class-list input[type="color"]').forEach(input => {
+    const randomColor = getRandomColor();
+    input.value = randomColor;
+    classColors[input.dataset.class] = randomColor;
+  });
+});
+
+saveBtn.addEventListener("click", async () => {
+  // Gather the current colors from all inputs
+  document.querySelectorAll('#class-list input[type="color"]').forEach(input => {
+    classColors[input.dataset.class] = input.value;
+  });
+
+  // Save locally for persistence
+  localStorage.setItem("customModelColors", JSON.stringify(classColors));
+
+  // 🎯 Send to backend with model_name included
+  try {
+    const response = await fetch("/set_class_colors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model_name: lastCustomModelName || "custom_model.pt", // ✅ include model name
+        colors: classColors
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      alert("Failed to apply colors: " + (err.detail || response.statusText));
+      return;
+    }
+
+    const resData = await response.json();
+    console.log("🎨 Colors updated on backend:", resData);
+    alert("✅ Colors saved! They’ll be used immediately in your next inference.");
+    classPopup.classList.add("hidden");
+  } catch (err) {
+    console.error("Error sending colors:", err);
+    alert("⚠️ Could not save colors to backend.");
+  }
+});
+
+function getRandomColor() {
+  const letters = "0123456789ABCDEF";
+  let color = "#";
+  for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
+  return color;
+}
 
 function openWs(wsPath) {
   const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + wsPath;
@@ -125,4 +222,19 @@ downloadBtn.addEventListener("click", async () => {
 
   downloadBtn.textContent = "Downloaded";
   log("💾 Download finished");
+});
+
+modelSelect.addEventListener("change", async () => {
+  const customModelContainer = document.getElementById("custom-model-container");
+  const showCustom = modelSelect.value === "custom";
+  customModelContainer.classList.toggle("hidden", !showCustom);
+
+  if (showCustom) {
+    document.getElementById("modelFile").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await analyzeCustomModel(file);
+      }
+    });
+  }
 });
